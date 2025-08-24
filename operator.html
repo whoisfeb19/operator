@@ -30,7 +30,7 @@
   <div class="container">
     <h2>Operator Videotron</h2>
 
-    <form id="formKonten">
+    <form id="formKonten" autocomplete="off">
       <label>Jenis Konten:</label>
       <select id="jenis" required>
         <option value="teks">Teks</option>
@@ -74,11 +74,11 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Data lokal
     let kontens = [];
     let kontenAktifId = null;
+    let isUploading = false;
 
-    // Ambil data dari Firebase saat aplikasi load/ada update
+    // Ambil data dari Firebase 
     db.ref("videotron/kontens").on("value", snap => {
       kontens = snap.val() || [];
       renderList();
@@ -106,7 +106,7 @@
         if (k.jenis === 'teks') {
           info += `<span style="color:#636e72;font-size:12px">[Teks]</span><br>"${k.isi}"`;
         } else if (k.jenis === 'gambar') {
-          info += `<span style="color:#636e72;font-size:12px">[Gambar]</span><div class="preview"><img src="${k.isi}" width="80"></div>`;
+          info += `<span style="color:#636e72;font-size:12px">[Gambar]</span><div class="preview"><img src="${k.isi}" width="80" loading="lazy"></div>`;
         } else if (k.jenis === 'video') {
           info += `<span style="color:#636e72;font-size:12px">[Video]</span><div class="preview"><video src="${k.isi}" width="100" controls></video></div>`;
         }
@@ -148,9 +148,9 @@
       syncFirebase();
     }
 
-    // ==== Perubahan utama: mendukung upload file lokal ====
     document.getElementById('formKonten').onsubmit = function(e) {
       e.preventDefault();
+      if (isUploading) return alert("Sedang mengunggah file, mohon tunggu...");
       const jenis = document.getElementById('jenis').value;
       const judul = document.getElementById('judul').value.trim();
 
@@ -166,13 +166,19 @@
         const file = document.getElementById('isiFile').files[0];
         const url = document.getElementById('isiUrl').value.trim();
         if (file) {
+          isUploading = true;
           const reader = new FileReader();
           reader.onload = function(ev) {
             kontens.push({id: Date.now(), jenis, judul, isi: ev.target.result});
             syncFirebase();
+            isUploading = false;
             document.getElementById('formKonten').reset();
             document.getElementById('inputTeks').style.display = '';
             document.getElementById('inputMedia').style.display = 'none';
+          };
+          reader.onerror = function() {
+            isUploading = false;
+            alert('Gagal membaca file.');
           };
           reader.readAsDataURL(file);
         } else if (url) {
@@ -187,7 +193,6 @@
       }
     };
 
-    // ==== Input file untuk gambar/video ====
     document.getElementById('jenis').onchange = function() {
       if (this.value === 'teks') {
         document.getElementById('inputTeks').style.display = '';
