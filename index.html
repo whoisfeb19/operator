@@ -45,37 +45,44 @@
       authDomain: "operator-ef267.firebaseapp.com",
       databaseURL: "https://operator-ef267-default-rtdb.firebaseio.com",
       projectId: "operator-ef267",
-      storageBucket: "operator-ef267.firebasestorage.app",
+      storageBucket: "operator-ef267.appspot.com",
       messagingSenderId: "479580916671",
       appId: "1:479580916671:web:cd1b4de2573c353fb22f0a"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    function tampilkanKonten(kontens, aktifId) {
+    let kontens = [];
+    let aktifId = "";
+
+    function renderKontenAktif() {
       const el = document.getElementById('konten');
       el.innerHTML = '';
       const k = (kontens||[]).find(x=>String(x.id) === String(aktifId));
-      if (!k) { el.innerHTML = '<i style="font-size:3vw">Break dulu ya, biar semangat PKKMB ini nggak berubah jadi Pelatihan Kuat-Kuat Menahan Bosan</i>'; return; }
+      if (!k) {
+        el.innerHTML = '<i style="font-size:3vw">Break dulu ya, biar semangat PKKMB ini nggak berubah jadi Pelatihan Kuat-Kuat Menahan Bosan</i>';
+        return;
+      }
       let html = '';
       if (k.jenis === 'teks') {
         html += `<div class="teks">${k.isi}</div>`;
       } else if (k.jenis === 'gambar') {
-        html += `<img src="${k.isi}" alt="${k.judul}">`;
+        html += `<img src="${k.isi}" alt="${k.judul}" loading="lazy">`;
       } else if (k.jenis === 'video') {
         html += `<video src="${k.isi}" autoplay loop controls muted></video>`;
       }
       el.innerHTML = html;
     }
 
-    let kontens = [], aktifId = "";
+    // Listener kontens
     db.ref("videotron/kontens").on("value", snap => {
       kontens = snap.val() || [];
-      tampilkanKonten(kontens, aktifId);
+      renderKontenAktif();
     });
+    // Listener konten aktif
     db.ref("videotron/kontenAktifId").on("value", snap => {
       aktifId = snap.val() || "";
-      tampilkanKonten(kontens, aktifId);
+      renderKontenAktif();
     });
   </script>
 </body>
