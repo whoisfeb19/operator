@@ -64,7 +64,7 @@
   </div>
 
   <script>
-    // GANTI konfigurasi di bawah dengan milik Anda dari Firebase console!
+    // KONFIGURASI FIREBASE
     const firebaseConfig = {
       apiKey: "AIzaSyAOT6Kdmr2xz1Sp3P-7XNixeYyv8acrfzY",
       authDomain: "operator-ef267.firebaseapp.com",
@@ -81,6 +81,7 @@
     let kontenAktifId = null;
     let isUploading = false;
 
+    // Listener Realtime
     db.ref("videotron/kontens").on("value", snap => {
       kontens = snap.val() || [];
       renderList();
@@ -92,8 +93,11 @@
       renderAktif();
     });
 
-    function syncFirebase() {
+    // Pemisah update, agar anti-delay
+    function updateKontenList() {
       db.ref("videotron/kontens").set(kontens);
+    }
+    function updateKontenAktifId() {
       db.ref("videotron/kontenAktifId").set(kontenAktifId || "");
     }
 
@@ -113,7 +117,6 @@
           info += `<span style="color:#636e72;font-size:12px">[Video]</span><div class="preview"><video src="${k.isi}" width="100" controls></video></div>`;
         }
 
-        // Tombol-tombol
         let btnAktif = (!k.hidden ? `<button onclick="setAktif(${k.id})" class="aktif" ${kontenAktifId==k.id?'disabled':''}>Tampilkan</button>` : '');
         let btnHide = (!k.hidden ? `<button onclick="hideKonten(${k.id})" class="hide">Sembunyikan</button>` : `<button onclick="unhideKonten(${k.id})" class="unhide">Tampilkan</button>`);
         let btnHapus = `<button onclick="hapusKonten(${k.id})">Hapus</button>`;
@@ -144,26 +147,32 @@
     // ==== FITUR HIDE/UNHIDE ====
     function hideKonten(id) {
       kontens = kontens.map(k => k.id === id ? {...k, hidden: true} : k);
-      // Jika konten aktif di-hide, unset kontenAktifId
       if (kontenAktifId == id) kontenAktifId = null;
-      syncFirebase();
+      updateKontenList();
+      updateKontenAktifId();
     }
     function unhideKonten(id) {
       kontens = kontens.map(k => k.id === id ? {...k, hidden: false} : k);
-      syncFirebase();
+      updateKontenList();
     }
 
     function setAktif(id) {
-      // Jika konten yang akan diaktifkan sedang hidden, otomatis unhide dulu
-      kontens = kontens.map(k => k.id === id ? {...k, hidden: false} : k);
+      // Unhide jika hidden, update list jika perlu
+      let changed = false;
+      kontens = kontens.map(k => {
+        if (k.id === id && k.hidden) { changed = true; return {...k, hidden: false}; }
+        return k;
+      });
       kontenAktifId = id;
-      syncFirebase();
+      if (changed) updateKontenList();
+      updateKontenAktifId();
     }
 
     function hapusKonten(id) {
       kontens = kontens.filter(k=>k.id!==id);
       if (kontenAktifId == id) kontenAktifId = null;
-      syncFirebase();
+      updateKontenList();
+      updateKontenAktifId();
     }
 
     document.getElementById('formKonten').onsubmit = function(e) {
@@ -176,7 +185,7 @@
         const isi = document.getElementById('isiTeks').value.trim();
         if (!isi) return alert('Isi teks tidak boleh kosong');
         kontens.push({id: Date.now(), jenis, judul, isi, hidden: false});
-        syncFirebase();
+        updateKontenList();
         this.reset();
         document.getElementById('inputTeks').style.display = '';
         document.getElementById('inputMedia').style.display = 'none';
@@ -188,7 +197,7 @@
           const reader = new FileReader();
           reader.onload = function(ev) {
             kontens.push({id: Date.now(), jenis, judul, isi: ev.target.result, hidden: false});
-            syncFirebase();
+            updateKontenList();
             isUploading = false;
             document.getElementById('formKonten').reset();
             document.getElementById('inputTeks').style.display = '';
@@ -201,7 +210,7 @@
           reader.readAsDataURL(file);
         } else if (url) {
           kontens.push({id: Date.now(), jenis, judul, isi: url, hidden: false});
-          syncFirebase();
+          updateKontenList();
           this.reset();
           document.getElementById('inputTeks').style.display = '';
           document.getElementById('inputMedia').style.display = 'none';
