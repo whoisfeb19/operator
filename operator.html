@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dashboard Operator Videotron (Firebase, Upload File)</title>
+  <title>Dashboard Operator Videotron (Firebase, Hide/Unhide)</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <style>
@@ -20,7 +20,10 @@
     .konten-info { max-width: 70%; }
     .konten-actions button { background: #636e72; margin-left: 6px; }
     .konten-actions .aktif { background: #00b894; }
+    .konten-actions .hide { background: #fdcb6e; color: #111; }
+    .konten-actions .unhide { background: #636e72; color: #fff; }
     .preview { margin-top: 8px; }
+    .hidden-row { opacity: 0.5; filter: grayscale(0.6); }
     @media (max-width: 600px) {
       .container { margin: 0px; border-radius: 0; }
     }
@@ -28,7 +31,7 @@
 </head>
 <body>
   <div class="container">
-    <h2>Operator </h2>
+    <h2>Operator</h2>
 
     <form id="formKonten" autocomplete="off">
       <label>Jenis Konten:</label>
@@ -78,7 +81,6 @@
     let kontenAktifId = null;
     let isUploading = false;
 
-    // Ambil data dari Firebase 
     db.ref("videotron/kontens").on("value", snap => {
       kontens = snap.val() || [];
       renderList();
@@ -100,7 +102,7 @@
       list.innerHTML = '';
       kontens.forEach((k, idx) => {
         const el = document.createElement('div');
-        el.className = 'konten-item';
+        el.className = 'konten-item' + (k.hidden ? ' hidden-row' : '');
 
         let info = `<b>${k.judul}</b> <br>`;
         if (k.jenis === 'teks') {
@@ -111,11 +113,13 @@
           info += `<span style="color:#636e72;font-size:12px">[Video]</span><div class="preview"><video src="${k.isi}" width="100" controls></video></div>`;
         }
 
-        let btnAktif = `<button onclick="setAktif(${k.id})" class="aktif" ${kontenAktifId==k.id?'disabled':''}>Tampilkan</button>`;
+        // Tombol-tombol
+        let btnAktif = (!k.hidden ? `<button onclick="setAktif(${k.id})" class="aktif" ${kontenAktifId==k.id?'disabled':''}>Tampilkan</button>` : '');
+        let btnHide = (!k.hidden ? `<button onclick="hideKonten(${k.id})" class="hide">Sembunyikan</button>` : `<button onclick="unhideKonten(${k.id})" class="unhide">Tampilkan</button>`);
         let btnHapus = `<button onclick="hapusKonten(${k.id})">Hapus</button>`;
 
         el.innerHTML = `<div class="konten-info">${info}</div>
-                        <div class="konten-actions">${btnAktif} ${btnHapus}</div>`;
+                        <div class="konten-actions">${btnAktif} ${btnHide} ${btnHapus}</div>`;
         list.appendChild(el);
       });
     }
@@ -123,7 +127,7 @@
     function renderAktif() {
       const el = document.getElementById('kontenAktif');
       if (!kontenAktifId) { el.style.display='none'; el.innerHTML=''; return; }
-      const k = kontens.find(x=>x.id==kontenAktifId);
+      const k = kontens.find(x=>x.id==kontenAktifId && !x.hidden);
       if (!k) { el.style.display='none'; el.innerHTML=''; return; }
       let info = `<b>${k.judul}</b> <br>`;
       if (k.jenis === 'teks') {
@@ -137,7 +141,21 @@
       el.style.display = 'block';
     }
 
+    // ==== FITUR HIDE/UNHIDE ====
+    function hideKonten(id) {
+      kontens = kontens.map(k => k.id === id ? {...k, hidden: true} : k);
+      // Jika konten aktif di-hide, unset kontenAktifId
+      if (kontenAktifId == id) kontenAktifId = null;
+      syncFirebase();
+    }
+    function unhideKonten(id) {
+      kontens = kontens.map(k => k.id === id ? {...k, hidden: false} : k);
+      syncFirebase();
+    }
+
     function setAktif(id) {
+      // Jika konten yang akan diaktifkan sedang hidden, otomatis unhide dulu
+      kontens = kontens.map(k => k.id === id ? {...k, hidden: false} : k);
       kontenAktifId = id;
       syncFirebase();
     }
@@ -157,7 +175,7 @@
       if (jenis === 'teks') {
         const isi = document.getElementById('isiTeks').value.trim();
         if (!isi) return alert('Isi teks tidak boleh kosong');
-        kontens.push({id: Date.now(), jenis, judul, isi});
+        kontens.push({id: Date.now(), jenis, judul, isi, hidden: false});
         syncFirebase();
         this.reset();
         document.getElementById('inputTeks').style.display = '';
@@ -169,7 +187,7 @@
           isUploading = true;
           const reader = new FileReader();
           reader.onload = function(ev) {
-            kontens.push({id: Date.now(), jenis, judul, isi: ev.target.result});
+            kontens.push({id: Date.now(), jenis, judul, isi: ev.target.result, hidden: false});
             syncFirebase();
             isUploading = false;
             document.getElementById('formKonten').reset();
@@ -182,7 +200,7 @@
           };
           reader.readAsDataURL(file);
         } else if (url) {
-          kontens.push({id: Date.now(), jenis, judul, isi: url});
+          kontens.push({id: Date.now(), jenis, judul, isi: url, hidden: false});
           syncFirebase();
           this.reset();
           document.getElementById('inputTeks').style.display = '';
