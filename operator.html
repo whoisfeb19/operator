@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Videotron Viewer (Firebase)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <style>
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0; padding: 0; overflow: hidden;
+      background: #111; color: #fff; font-family: Arial, sans-serif;
+    }
+    body {
+      width: 100vw; height: 100vh;
+      display: flex; justify-content: center; align-items: center; text-align: center;
+    }
+    #konten {
+      width: 100vw; height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    img, video {
+      max-width: 100vw; max-height: 100vh;
+      width: 100vw; height: 100vh;
+      object-fit: contain; border-radius: 0; background: #111; margin: 0; display: block;
+    }
+    .teks {
+      font-size: 6vw; color: #fff; width: 100vw;
+      display: flex; align-items: center; justify-content: center;
+      height: 100vh; word-break: break-word; white-space: pre-line;
+    }
+    @media (max-aspect-ratio: 4/3) {
+      .teks { font-size: 8vw; }
+    }
+  </style>
+</head>
+<body>
+  <div id="konten"></div>
+  <script>
+    // GANTI konfigurasi di bawah dengan milik Anda dari Firebase console!
+    const firebaseConfig = {
+      apiKey: "AIzaSyAOT6Kdmr2xz1Sp3P-7XNixeYyv8acrfzY",
+      authDomain: "operator-ef267.firebaseapp.com",
+      databaseURL: "https://operator-ef267-default-rtdb.firebaseio.com",
+      projectId: "operator-ef267",
+      storageBucket: "operator-ef267.firebasestorage.app",
+      messagingSenderId: "479580916671",
+      appId: "1:479580916671:web:cd1b4de2573c353fb22f0a"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function tampilkanKonten(kontens, aktifId) {
+      const el = document.getElementById('konten');
+      el.innerHTML = '';
+      const k = (kontens||[]).find(x=>String(x.id) === String(aktifId));
+      if (!k) { el.innerHTML = '<i style="font-size:3vw">Break dulu ya, biar semangat PKKMB ini nggak berubah jadi Pelatihan Kuat-Kuat Menahan Bosan</i>'; return; }
+      let html = '';
+      if (k.jenis === 'teks') {
+        html += `<div class="teks">${k.isi}</div>`;
+      } else if (k.jenis === 'gambar') {
+        html += `<img src="${k.isi}" alt="${k.judul}">`;
+      } else if (k.jenis === 'video') {
+        html += `<video src="${k.isi}" autoplay loop controls muted></video>`;
+      }
+      el.innerHTML = html;
+    }
+
+    let kontens = [], aktifId = "";
+    db.ref("videotron/kontens").on("value", snap => {
+      kontens = snap.val() || [];
+      tampilkanKonten(kontens, aktifId);
+    });
+    db.ref("videotron/kontenAktifId").on("value", snap => {
+      aktifId = snap.val() || "";
+      tampilkanKonten(kontens, aktifId);
+    });
+  </script>
+</body>
+</html>
