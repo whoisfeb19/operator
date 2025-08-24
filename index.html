@@ -2,61 +2,42 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
+  <title>Videotron Viewer (Firebase)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dashboard Operator Videotron (Firebase)</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; background: #f5f6fa; margin: 0; padding: 0; }
-    .container { max-width: 480px; margin: 30px auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 3px 20px #0001; }
-    h2 { text-align: center; color: #0984e3; }
-    form { margin-bottom: 24px; }
-    label { display: block; margin-top: 12px; }
-    input, textarea, select { width: 100%; padding: 8px; margin-top: 4px; border-radius: 4px; border: 1px solid #ccc; }
-    button { background: #0984e3; color: #fff; border: none; padding: 10px 18px; border-radius: 5px; margin-top: 14px; cursor: pointer; }
-    button:active { background: #74b9ff; }
-    .konten-list { margin-top: 28px; }
-    .konten-item { background: #f1f2f6; padding: 12px; border-radius: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-    .konten-info { max-width: 70%; }
-    .konten-actions button { background: #636e72; margin-left: 6px; }
-    .konten-actions .aktif { background: #00b894; }
-    .preview { margin-top: 8px; }
-    @media (max-width: 600px) {
-      .container { margin: 0px; border-radius: 0; }
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0; padding: 0; overflow: hidden;
+      background: #111; color: #fff; font-family: Arial, sans-serif;
+    }
+    body {
+      width: 100vw; height: 100vh;
+      display: flex; justify-content: center; align-items: center; text-align: center;
+    }
+    #konten {
+      width: 100vw; height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    img, video {
+      max-width: 100vw; max-height: 100vh;
+      width: 100vw; height: 100vh;
+      object-fit: contain; border-radius: 0; background: #111; margin: 0; display: block;
+    }
+    .teks {
+      font-size: 6vw; color: #fff; width: 100vw;
+      display: flex; align-items: center; justify-content: center;
+      height: 100vh; word-break: break-word; white-space: pre-line;
+    }
+    @media (max-aspect-ratio: 4/3) {
+      .teks { font-size: 8vw; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Operator Videotron</h2>
-
-    <form id="formKonten">
-      <label>Jenis Konten:</label>
-      <select id="jenis" required>
-        <option value="teks">Teks</option>
-        <option value="gambar">Gambar</option>
-        <option value="video">Video</option>
-      </select>
-      <label>Judul:</label>
-      <input type="text" id="judul" placeholder="Judul konten" required>
-      <div id="inputTeks">
-        <label>Teks:</label>
-        <textarea id="isiTeks" rows="2" placeholder="Masukkan teks"></textarea>
-      </div>
-      <div id="inputUrl" style="display:none;">
-        <label>URL Gambar/Video:</label>
-        <input type="url" id="isiUrl" placeholder="https://..." >
-      </div>
-      <button type="submit">Tambah Konten</button>
-    </form>
-
-    <h3>Daftar Konten</h3>
-    <div class="konten-list" id="kontenList"></div>
-
-    <h3>Konten Aktif di Videotron</h3>
-    <div id="kontenAktif" class="konten-item" style="margin-top:10px; background:#dff9fb; border:1px solid #0984e3; display:none;"></div>
-  </div>
-
+  <div id="konten"></div>
   <script>
     // GANTI konfigurasi di bawah dengan milik Anda dari Firebase console!
     const firebaseConfig = {
@@ -71,108 +52,31 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Data lokal
-    let kontens = [];
-    let kontenAktifId = null;
+    function tampilkanKonten(kontens, aktifId) {
+      const el = document.getElementById('konten');
+      el.innerHTML = '';
+      const k = (kontens||[]).find(x=>String(x.id) === String(aktifId));
+      if (!k) { el.innerHTML = '<i style="font-size:3vw">Break dulu ya, biar semangat PKKMB ini nggak berubah jadi Pelatihan Kuat-Kuat Menahan Bosan</i>'; return; }
+      let html = '';
+      if (k.jenis === 'teks') {
+        html += `<div class="teks">${k.isi}</div>`;
+      } else if (k.jenis === 'gambar') {
+        html += `<img src="${k.isi}" alt="${k.judul}">`;
+      } else if (k.jenis === 'video') {
+        html += `<video src="${k.isi}" autoplay loop controls muted></video>`;
+      }
+      el.innerHTML = html;
+    }
 
-    // Ambil data dari Firebase saat aplikasi load/ada update
+    let kontens = [], aktifId = "";
     db.ref("videotron/kontens").on("value", snap => {
       kontens = snap.val() || [];
-      renderList();
-      renderAktif();
+      tampilkanKonten(kontens, aktifId);
     });
     db.ref("videotron/kontenAktifId").on("value", snap => {
-      kontenAktifId = snap.val() || null;
-      renderList();
-      renderAktif();
+      aktifId = snap.val() || "";
+      tampilkanKonten(kontens, aktifId);
     });
-
-    function syncFirebase() {
-      db.ref("videotron/kontens").set(kontens);
-      db.ref("videotron/kontenAktifId").set(kontenAktifId || "");
-    }
-
-    function renderList() {
-      const list = document.getElementById('kontenList');
-      list.innerHTML = '';
-      kontens.forEach((k, idx) => {
-        const el = document.createElement('div');
-        el.className = 'konten-item';
-
-        let info = `<b>${k.judul}</b> <br>`;
-        if (k.jenis === 'teks') {
-          info += `<span style="color:#636e72;font-size:12px">[Teks]</span><br>"${k.isi}"`;
-        } else if (k.jenis === 'gambar') {
-          info += `<span style="color:#636e72;font-size:12px">[Gambar]</span><div class="preview"><img src="${k.isi}" width="80"></div>`;
-        } else if (k.jenis === 'video') {
-          info += `<span style="color:#636e72;font-size:12px">[Video]</span><div class="preview"><video src="${k.isi}" width="100" controls></video></div>`;
-        }
-
-        let btnAktif = `<button onclick="setAktif(${k.id})" class="aktif" ${kontenAktifId==k.id?'disabled':''}>Tampilkan</button>`;
-        let btnHapus = `<button onclick="hapusKonten(${k.id})">Hapus</button>`;
-
-        el.innerHTML = `<div class="konten-info">${info}</div>
-                        <div class="konten-actions">${btnAktif} ${btnHapus}</div>`;
-        list.appendChild(el);
-      });
-    }
-
-    function renderAktif() {
-      const el = document.getElementById('kontenAktif');
-      if (!kontenAktifId) { el.style.display='none'; el.innerHTML=''; return; }
-      const k = kontens.find(x=>x.id==kontenAktifId);
-      if (!k) { el.style.display='none'; el.innerHTML=''; return; }
-      let info = `<b>${k.judul}</b> <br>`;
-      if (k.jenis === 'teks') {
-        info += `<span style="color:#636e72;font-size:12px">[Teks]</span><br>"${k.isi}"`;
-      } else if (k.jenis === 'gambar') {
-        info += `<span style="color:#636e72;font-size:12px">[Gambar]</span><div class="preview"><img src="${k.isi}" width="120"></div>`;
-      } else if (k.jenis === 'video') {
-        info += `<span style="color:#636e72;font-size:12px">[Video]</span><div class="preview"><video src="${k.isi}" width="180" controls autoplay loop></video></div>`;
-      }
-      el.innerHTML = info;
-      el.style.display = 'block';
-    }
-
-    function setAktif(id) {
-      kontenAktifId = id;
-      syncFirebase();
-    }
-
-    function hapusKonten(id) {
-      kontens = kontens.filter(k=>k.id!==id);
-      if (kontenAktifId == id) kontenAktifId = null;
-      syncFirebase();
-    }
-
-    document.getElementById('formKonten').onsubmit = function(e) {
-      e.preventDefault();
-      const jenis = document.getElementById('jenis').value;
-      const judul = document.getElementById('judul').value.trim();
-      let isi = '';
-      if (jenis === 'teks') {
-        isi = document.getElementById('isiTeks').value.trim();
-        if (!isi) return alert('Isi teks tidak boleh kosong');
-      } else {
-        isi = document.getElementById('isiUrl').value.trim();
-        if (!isi) return alert('URL tidak boleh kosong');
-      }
-      kontens.push({id: Date.now(), jenis, judul, isi});
-      syncFirebase();
-      this.reset();
-      document.getElementById('inputTeks').style.display = '';
-      document.getElementById('inputUrl').style.display = 'none';
-    }
-
-    document.getElementById('jenis').onchange = function() {
-      if (this.value === 'teks') {
-        document.getElementById('inputTeks').style.display = '';
-        document.getElementById('inputUrl').style.display = 'none';
-      } else {
-        document.getElementById('inputTeks').style.display = 'none';
-        document.getElementById('inputUrl').style.display = '';
-      }
-    }
   </script>
 </body>
 </html>
